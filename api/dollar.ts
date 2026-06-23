@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import https from 'https';
 
 let cachedRate: {
   rate: number;
@@ -17,20 +18,25 @@ async function scrapeDollar() {
         'Accept-Language': 'es-VE,es;q=0.9',
       },
       timeout: 20000,
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
     });
 
     const $ = cheerio.load(html);
     let rateText = '';
 
-    // Selector principal del BCV (estructura actual)
-    rateText = $('#dolar strong').text().trim();
+    // Selector exacto según DevTools del BCV
+    rateText = $('#dolar .col-sm-6.centrado.textp strong').text().trim();
 
     if (!rateText) {
-      rateText = $('div#dolar .centrado strong').text().trim();
+      rateText = $('#dolar .strong-tb').text().trim();
     }
 
     if (!rateText) {
-      // Backup: buscar en todo el HTML el patrón numérico venezolano
+      rateText = $('#dolar strong').text().trim();
+    }
+
+    // Backup regex
+    if (!rateText) {
       const matches = html.match(/(\d{1,3}(?:\.\d{3})*,\d{4,8})/g);
       if (matches && matches.length > 0) {
         rateText =
@@ -44,7 +50,7 @@ async function scrapeDollar() {
     const rate = parseFloat(cleanRate);
 
     if (isNaN(rate) || rate < 10) {
-      console.error('❌ No se encontró tasa válida. Texto:', rateText);
+      console.error('❌ Tasa inválida. Texto encontrado:', rateText);
       throw new Error('Tasa inválida');
     }
 
@@ -54,7 +60,7 @@ async function scrapeDollar() {
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log(`✅ Tasa USD encontrada: ${rate}`);
+    console.log(`✅ Tasa USD: ${rate}`);
     return cachedRate;
   } catch (error) {
     console.error('❌ Error scraping BCV:', error);
