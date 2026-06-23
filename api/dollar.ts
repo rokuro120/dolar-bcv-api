@@ -11,7 +11,7 @@ let lastScrapeTime = 0;
 
 async function scrapeBCV() {
   try {
-    const { data: html } = await axios.get('https://www.bcv.org.ve/', {
+    const { data: html } = await axios.get('https://www.bancodevenezuela.com/index.html', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; DolarBCV-API/1.0)',
         'Accept': 'text/html,application/xhtml+xml',
