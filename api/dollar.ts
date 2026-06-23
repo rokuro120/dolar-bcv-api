@@ -9,11 +9,11 @@ let cachedRate: {
 
 let lastScrapeTime = 0;
 
-async function scrapeBCV() {
+async function scrapeDollar() {
   try {
     const { data: html } = await axios.get('https://www.bancodevenezuela.com/index.html', {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; DolarBCV-API/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
       },
       timeout: 15000,
@@ -21,38 +21,29 @@ async function scrapeBCV() {
 
     const $ = cheerio.load(html);
 
-    // Selector actualizado (junio 2026)
-    let rateText = '';
+    // Selector exacto según la imagen que mostraste
+    let rateText = $('#mesa-cambio-bcv-dolar').text().trim();
 
-    // Buscar directamente después de "USD"
-    $('strong').each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.includes(',') && text.length > 8) {
-        const prevText = $(el).parent().prev().text().trim();
-        if (prevText === 'USD' || prevText.includes('USD')) {
-          rateText = text;
-          return false; // break
-        }
-      }
-    });
-
-    // Backup
+    // Backup por si cambia el ID
     if (!rateText) {
-      rateText = html.match(/USD[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{6})/i)?.[1] || '';
+      rateText = $('span[id*="bcv-dolar"]').first().text().trim();
+    }
+
+    if (!rateText) {
+      // Buscar cualquier número grande con comas
+      const match = html.match(/(\d{1,3}(?:\.\d{3})*,\d{4})/);
+      if (match) rateText = match[1];
     }
 
     const cleanRate = rateText.replace(/\./g, '').replace(',', '.');
     const rate = parseFloat(cleanRate);
 
-    if (isNaN(rate) || rate < 30) {
-      throw new Error(`Tasa inválida extraída: ${rateText}`);
+    if (isNaN(rate) || rate < 100) {
+      throw new Error(`Tasa inválida: ${rateText}`);
     }
 
-    // Extraer fecha
-    const dateMatch = html.match(/Fecha Valor:\s*([^\n<]+)/i);
-    const dateText = dateMatch 
-      ? dateMatch[1].trim() 
-      : new Date().toISOString().split('T')[0];
+    // Fecha actual (el BDV no muestra fecha exacta fácilmente)
+    const dateText = new Date().toISOString().split('T')[0];
 
     cachedRate = {
       rate,
@@ -60,25 +51,22 @@ async function scrapeBCV() {
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log(`✅ Tasa BCV actualizada: ${rate} | ${dateText}`);
+    console.log(`✅ Tasa BDV actualizada: ${rate}`);
     return cachedRate;
 
   } catch (error) {
-    console.error('❌ Error al obtener tasa del BCV:', error);
+    console.error('❌ Error al obtener tasa:', error);
     return null;
   }
 }
 
-// Handler principal para Vercel
+// Handler principal
 export default async function handler(req: any, res: any) {
   const now = Date.now();
 
-  // Actualizar cada 4 horas como máximo
-  if (!cachedRate || now - lastScrapeTime > 4 * 60 * 60 * 1000) {
-    const result = await scrapeBCV();
-    if (result) {
-      lastScrapeTime = now;
-    }
+  if (!cachedRate || now - lastScrapeTime > 3600000) { // cada hora
+    const result = await scrapeDollar();
+    if (result) lastScrapeTime = now;
   }
 
   if (cachedRate) {
