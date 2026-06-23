@@ -15,51 +15,54 @@ async function scrapeDollar() {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
       },
-      timeout: 15000,
+      timeout: 20000,
     });
 
     const $ = cheerio.load(html);
 
     let rateText = '';
 
-    // Selector más preciso según la estructura actual del BDV
+    // Selectores según la estructura actual del BDV
     rateText = $('#mesa-cambio-bcv-dolar').text().trim();
 
-    // Backups
     if (!rateText) {
       rateText = $('span[id*="bcv-dolar"]').first().text().trim();
     }
+
     if (!rateText) {
-      rateText = $('span:contains("BCV")').parent().find('span[id*="dolar"]').first().text().trim();
+      rateText = $('span[id*="mesa-cambio"]').text().trim();
     }
 
-    // Último backup: buscar el número que aparece después de "BCV" en la mesa de cambio
+    // Backup potente: buscar números con formato típico de tasa (muchos dígitos y coma)
     if (!rateText) {
-      const match = html.match(/BCV:\s*\$?\s*(\d{1,3}(?:\.\d{3})*,\d+)/i);
-      if (match) rateText = match[1];
+      const matches = html.match(/(\d{1,3}(?:\.\d{3})*,\d{4,8})/g);
+      if (matches && matches.length > 0) {
+        // Tomamos el que parece ser del dólar (generalmente el primero o segundo grande)
+        rateText = matches.find(m => parseFloat(m.replace(/\./g, '').replace(',', '.')) > 100) || matches[0];
+      }
     }
 
     const cleanRate = rateText.replace(/\./g, '').replace(',', '.');
     const rate = parseFloat(cleanRate);
 
     if (isNaN(rate) || rate < 100) {
-      console.error('❌ Tasa no válida encontrada:', rateText);
+      console.error('❌ No se encontró tasa válida. Texto:', rateText);
       throw new Error('Tasa inválida');
     }
 
     const dateText = new Date().toISOString().split('T')[0];
 
     cachedRate = {
-      rate,
+      rate: Number(rate.toFixed(4)), // más precisión
       date: dateText,
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log(`✅ Tasa USD correcta: ${rate}`);
+    console.log(`✅ Tasa USD encontrada: ${rate}`);
     return cachedRate;
 
   } catch (error) {
-    console.error('❌ Error al scrapear:', error);
+    console.error('❌ Error scraping BDV:', error);
     return null;
   }
 }
@@ -68,7 +71,8 @@ async function scrapeDollar() {
 export default async function handler(req: any, res: any) {
   const now = Date.now();
 
-  if (!cachedRate || now - lastScrapeTime > 1800000) { // cada 30 minutos
+  // Forzar actualización si no hay caché o es viejo
+  if (!cachedRate || now - lastScrapeTime > 1800000) { // 30 minutos
     const result = await scrapeDollar();
     if (result) lastScrapeTime = now;
   }
