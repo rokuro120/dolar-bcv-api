@@ -1,0 +1,22 @@
+{
+  "name": "venezuela-dolar",
+  "version": "1.0.0",
+  "description": "API para obtener la tasa oficial del dólar BCV",
+  "main": "api/dollar.ts",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc"
+  },
+  "keywords": ["dolar", "bcv", "venezuela", "api"],
+  "author": "Tu Nombre",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0-rc.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vercel/node": "^3.2.0",
+    "typescript": "^5.5.0"
+  }
+}
