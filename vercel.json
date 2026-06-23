@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/dollar.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/dollar",
+      "dest": "/api/dollar.ts"
+    },
+    {
+      "src": "/",
+      "dest": "/api/dollar.ts"
+    }
+  ]
+}
