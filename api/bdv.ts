@@ -68,9 +68,28 @@ export default async function handler(req: any, res: any) {
   if (cachedRate) {
     res.status(200).json(cachedRate);
   } else {
-    res.status(503).json({
-      error: 'No se pudo obtener la tasa del Banco de Venezuela',
-      message: 'Inténtalo nuevamente en unos minutos',
-    });
+    // TEMPORAL: muestra el error real
+    try {
+      const { data: html } = await axios.get('https://www.bancodevenezuela.com/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+        },
+        timeout: 20000,
+        httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
+      });
+      res.status(200).json({ 
+        debug: true,
+        htmlLength: html.length,
+        preview: html.substring(0, 500)
+      });
+    } catch (err: any) {
+      res.status(503).json({
+        debug: true,
+        errorMessage: err.message,
+        errorCode: err.code,
+        status: err.response?.status,
+      });
+    }
   }
 }
+
