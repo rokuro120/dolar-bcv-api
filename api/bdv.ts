@@ -4,6 +4,8 @@ import https from 'https';
 
 let cachedRate: {
   rate: number;
+  rateCompra: number;
+  rateVenta: number;
   source: string;
   date: string;
   lastUpdated: string;
@@ -12,7 +14,8 @@ let lastScrapeTime = 0;
 
 async function scrapeBDV() {
   try {
-    const { data: html } = await axios.get('https://www.bancodevenezuela.com/', {
+    // El BCV publica las tasas de todos los bancos en su propia página
+    const { data: html } = await axios.get('https://www.bcv.org.ve/', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -23,36 +26,47 @@ async function scrapeBDV() {
     });
 
     const $ = cheerio.load(html);
+    let rateCompra = '';
+    let rateVenta = '';
 
-    // Selectores exactos según DevTools del BDV
-    let rateText = $('span#mesa-cambio-bdv-dolar').text().trim();
+    // El BCV tiene tabla de tasas informativas del sistema bancario
+    // Buscar la fila del Banco de Venezuela
+    $('table tr').each((_: any, row: any) => {
+      const cells = $(row).find('td');
+      const banco = $(cells[0]).text().trim();
+      if (banco.toLowerCase().includes('banco de venezuela') || 
+          banco.toLowerCase().includes('bdv')) {
+        rateCompra = $(cells[1]).text().trim();
+        rateVenta  = $(cells[2]).text().trim();
+      }
+    });
 
-    if (!rateText) {
-      rateText = $('span#mesa-cambio-bcv-dolar').text().trim();
+    if (!rateCompra && !rateVenta) {
+      throw new Error('No se encontró la fila del Banco de Venezuela');
     }
 
-    if (!rateText) {
-      rateText = $('[id*="mesa-cambio"][id*="dolar"]').first().text().trim();
-    }
+    const cleanCompra = rateCompra.replace(/\./g, '').replace(',', '.');
+    const cleanVenta  = rateVenta.replace(/\./g, '').replace(',', '.');
+    const compra = parseFloat(cleanCompra);
+    const venta  = parseFloat(cleanVenta);
 
-    const cleanRate = rateText.replace(/\./g, '').replace(',', '.');
-    const rate = parseFloat(cleanRate);
-
-    if (isNaN(rate) || rate < 100) {
-      throw new Error(`Tasa inválida: "${rateText}"`);
+    if (isNaN(compra) || isNaN(venta) || compra < 100) {
+      throw new Error(`Tasas inválidas: compra="${rateCompra}" venta="${rateVenta}"`);
     }
 
     cachedRate = {
-      rate: Number(rate.toFixed(4)),
-      source: 'Banco de Venezuela',
+      rate: Number(venta.toFixed(4)),
+      rateCompra: Number(compra.toFixed(4)),
+      rateVenta: Number(venta.toFixed(4)),
+      source: 'Banco de Venezuela (vía BCV)',
       date: new Date().toISOString().split('T')[0],
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log(`✅ Tasa BDV: ${rate}`);
+    console.log(`✅ Tasa BDV: compra=${compra} venta=${venta}`);
     return cachedRate;
   } catch (error) {
-    console.error('❌ Error scraping BDV:', error);
+    console.error('❌ Error scraping BDV desde BCV:', error);
     return null;
   }
 }
@@ -68,35 +82,9 @@ export default async function handler(req: any, res: any) {
   if (cachedRate) {
     res.status(200).json(cachedRate);
   } else {
-    // TEMPORAL: muestra el error real
-    try {
-      const { data: html } = await axios.get('https://www.bancodevenezuela.com/', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-        },
-        timeout: 20000,
-        httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
-      });
-      const $ = cheerio.load(html);
-
-       // Buscar con regex directamente en el HTML crudo
-        const regexBDV = html.match(/id="mesa-cambio-bdv-dolar">([^<]+)<\/span>/);
-        const regexBCV = html.match(/id="mesa-cambio-bcv-dolar">([^<]+)<\/span>/);
-
-        res.status(200).json({
-        debug: true,
-        regexBDV: regexBDV?.[1] ?? 'no encontrado',
-        regexBCV: regexBCV?.[1] ?? 'no encontrado',
-        cheerioResult: $('span#mesa-cambio-bdv-dolar').text(),
-        });
-    } catch (err: any) {
-      res.status(503).json({
-        debug: true,
-        errorMessage: err.message,
-        errorCode: err.code,
-        status: err.response?.status,
-      });
-    }
+    res.status(503).json({
+      error: 'No se pudo obtener la tasa del Banco de Venezuela',
+      message: 'Inténtalo nuevamente en unos minutos',
+    });
   }
 }
-
