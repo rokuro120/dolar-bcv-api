@@ -4,12 +4,20 @@
     {
       "src": "api/dollar.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/bdv.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/dollar",
       "dest": "/api/dollar.ts"
+    },
+    {
+      "src": "/api/bdv",
+      "dest": "/api/bdv.ts"
     },
     {
       "src": "/",
