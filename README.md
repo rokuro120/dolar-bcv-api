@@ -1,16 +1,22 @@
 # Dólar BCV API
 
-> API gratuita y de código abierto para consultar la tasa oficial del dólar publicada por el Banco Central de Venezuela.
+> API gratuita y de código abierto para consultar la tasa oficial del dólar en Venezuela.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Deploy](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://dolar-bcv-api.vercel.app)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Status](https://img.shields.io/badge/status-active-success)](https://dolar-bcv-api.vercel.app/api/dollar)
 
 ---
 
 ## ¿Qué es esto?
 
-**Dólar BCV API** extrae automáticamente la tasa de cambio oficial publicada por el [Banco Central de Venezuela](https://www.bcv.org.ve) y la expone a través de un endpoint JSON simple, con caché inteligente para minimizar la carga sobre el sitio del BCV.
+**Dólar BCV API** expone la tasa de cambio oficial del dólar en Venezuela a través de endpoints JSON simples, con caché inteligente para minimizar la carga sobre las fuentes de datos.
+
+Cuenta con dos endpoints independientes:
+
+- **`/api/dollar`** — tasa oficial publicada directamente por el [Banco Central de Venezuela](https://www.bcv.org.ve)
+- **`/api/bdv`** — tasa del dólar con cierre anterior y valor del día, vía [Banca y Negocios](https://www.bancaynegocios.com)
 
 Ideal para integrar en aplicaciones web, móviles, sistemas administrativos, bots, dashboards y herramientas financieras.
 
@@ -28,7 +34,7 @@ https://dolar-bcv-api.vercel.app
 
 ### `GET /api/dollar`
 
-Retorna la tasa oficial del dólar según el BCV.
+Tasa oficial del dólar publicada por el BCV.
 
 ```bash
 curl https://dolar-bcv-api.vercel.app/api/dollar
@@ -38,19 +44,53 @@ curl https://dolar-bcv-api.vercel.app/api/dollar
 
 ```json
 {
-  "rate": 617.6388,
-  "date": "2026-06-23",
-  "lastUpdated": "2026-06-23T17:15:22.456Z"
+  "rate": 621.5299,
+  "source": "Banco Central de Venezuela",
+  "date": "2026-06-24",
+  "lastUpdated": "2026-06-24T00:00:33.357Z"
 }
 ```
 
-| Campo         | Tipo     | Descripción                                      |
-| ------------- | -------- | ------------------------------------------------ |
-| `rate`        | `number` | Tasa oficial del dólar BCV (4 decimales)         |
-| `date`        | `string` | Fecha de publicación de la tasa (`YYYY-MM-DD`)   |
-| `lastUpdated` | `string` | Timestamp de la última actualización (ISO 8601)  |
+| Campo         | Tipo     | Descripción                                     |
+| ------------- | -------- | ----------------------------------------------- |
+| `rate`        | `number` | Tasa oficial del dólar BCV (4 decimales)        |
+| `source`      | `string` | Fuente de los datos                             |
+| `date`        | `string` | Fecha de consulta (`YYYY-MM-DD`)                |
+| `lastUpdated` | `string` | Timestamp de la última actualización (ISO 8601) |
 
-**Respuesta de error — `503 Service Unavailable`**
+---
+
+### `GET /api/bdv`
+
+Tasa del dólar con valor del día y cierre anterior.
+
+```bash
+curl https://dolar-bcv-api.vercel.app/api/bdv
+```
+
+**Respuesta exitosa — `200 OK`**
+
+```json
+{
+  "rate": 621.5299,
+  "rateAnterior": 617.6388,
+  "source": "Banca y Negocios (Fuente: BCV)",
+  "date": "2026-06-24",
+  "lastUpdated": "2026-06-24T00:43:58.931Z"
+}
+```
+
+| Campo          | Tipo     | Descripción                                     |
+| -------------- | -------- | ----------------------------------------------- |
+| `rate`         | `number` | Tasa del dólar del día (4 decimales)            |
+| `rateAnterior` | `number` | Tasa del cierre anterior (4 decimales)          |
+| `source`       | `string` | Fuente de los datos                             |
+| `date`         | `string` | Fecha de consulta (`YYYY-MM-DD`)                |
+| `lastUpdated`  | `string` | Timestamp de la última actualización (ISO 8601) |
+
+---
+
+**Respuesta de error — `503 Service Unavailable`** (ambos endpoints)
 
 ```json
 {
@@ -63,7 +103,7 @@ curl https://dolar-bcv-api.vercel.app/api/dollar
 
 ### `GET /`
 
-Retorna un mensaje de bienvenida con información básica de la API.
+Mensaje de bienvenida con información básica de la API.
 
 ---
 
@@ -72,11 +112,15 @@ Retorna un mensaje de bienvenida con información básica de la API.
 ### JavaScript / TypeScript
 
 ```ts
-const response = await fetch('https://dolar-bcv-api.vercel.app/api/dollar');
-const { rate, date } = await response.json();
+// Tasa BCV oficial
+const res = await fetch('https://dolar-bcv-api.vercel.app/api/dollar');
+const { rate, source, date } = await res.json();
+console.log(`${source}: ${rate} Bs/USD (${date})`);
 
-console.log(`Tasa BCV: ${rate} Bs/USD`);
-console.log(`Fecha: ${date}`);
+// Tasa con cierre anterior
+const res2 = await fetch('https://dolar-bcv-api.vercel.app/api/bdv');
+const { rate: hoy, rateAnterior } = await res2.json();
+console.log(`Hoy: ${hoy} — Ayer: ${rateAnterior}`);
 ```
 
 ### Python
@@ -84,30 +128,36 @@ console.log(`Fecha: ${date}`);
 ```python
 import requests
 
-res = requests.get('https://dolar-bcv-api.vercel.app/api/dollar')
-data = res.json()
-
+# Tasa BCV oficial
+data = requests.get('https://dolar-bcv-api.vercel.app/api/dollar').json()
 print(f"Tasa BCV: {data['rate']} Bs/USD")
-print(f"Fecha: {data['date']}")
+
+# Tasa con cierre anterior
+data2 = requests.get('https://dolar-bcv-api.vercel.app/api/bdv').json()
+print(f"Hoy: {data2['rate']} — Ayer: {data2['rateAnterior']}")
 ```
 
 ### cURL
 
 ```bash
+# Tasa BCV oficial
 curl https://dolar-bcv-api.vercel.app/api/dollar
+
+# Tasa con cierre anterior
+curl https://dolar-bcv-api.vercel.app/api/bdv
 ```
 
 ---
 
 ## Stack tecnológico
 
-| Tecnología                  | Rol                                    |
-| --------------------------- | -------------------------------------- |
-| TypeScript                  | Lenguaje principal                     |
-| Vercel Serverless Functions | Infraestructura de despliegue          |
-| Axios                       | Cliente HTTP para el scraping          |
-| Cheerio                     | Parsing del HTML del BCV               |
-| Caché en memoria            | Reducción de requests al BCV (30 min)  |
+| Tecnología                  | Rol                                         |
+| --------------------------- | ------------------------------------------- |
+| TypeScript                  | Lenguaje principal                          |
+| Vercel Serverless Functions | Infraestructura de despliegue               |
+| Axios                       | Cliente HTTP para el scraping               |
+| Cheerio                     | Parsing del HTML                            |
+| Caché en memoria            | Reducción de requests a las fuentes (30 min)|
 
 ---
 
@@ -116,13 +166,13 @@ curl https://dolar-bcv-api.vercel.app/api/dollar
 ### Prerrequisitos
 
 - Node.js 18+
-- Cuenta en [Vercel](https://vercel.com) (para despliegue en producción)
+- Cuenta en [Vercel](https://vercel.com) (para producción)
 
 ### Ejecutar localmente
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/dolar-bcv-api.git
+git clone https://github.com/rokuro120/dolar-bcv-api.git
 cd dolar-bcv-api
 
 # 2. Instalar dependencias
@@ -137,32 +187,40 @@ La API estará disponible en `http://localhost:3000`.
 ### Desplegar en Vercel
 
 ```bash
-# Con Vercel CLI
 npm install -g vercel
 vercel
 ```
 
-O directamente desde la UI: importa el repositorio en [vercel.com/new](https://vercel.com/new). Vercel detecta la configuración automáticamente.
+O importa el repositorio directamente en [vercel.com/new](https://vercel.com/new). Vercel detecta la configuración automáticamente.
 
 ---
 
 ## Comportamiento del caché
 
-Para no saturar el sitio del BCV, la API almacena la tasa en memoria con un TTL de **30 minutos**. Si la caché está vigente, la respuesta es inmediata. Si expiró o no existe, se realiza un nuevo scraping antes de responder.
+Ambos endpoints almacenan la tasa en memoria con un TTL de **30 minutos** para no saturar las fuentes de datos.
 
 ```
-Primera request  →  scraping del BCV  →  almacena en caché  →  responde
-Requests siguientes (< 30 min)  →  responde desde caché
-Request tras 30 min  →  nuevo scraping  →  actualiza caché  →  responde
+Primera request       →  scraping  →  almacena en caché  →  responde
+Requests < 30 min     →  responde desde caché
+Request tras 30 min   →  nuevo scraping  →  actualiza caché  →  responde
 ```
+
+---
+
+## Fuentes de datos
+
+| Endpoint      | Fuente                                                     |
+| ------------- | ---------------------------------------------------------- |
+| `/api/dollar` | [bcv.org.ve](https://www.bcv.org.ve) (BCV oficial)        |
+| `/api/bdv`    | [bancaynegocios.com](https://www.bancaynegocios.com) (BCV) |
 
 ---
 
 ## Aviso importante
 
-> Esta API **no es un servicio oficial** del Banco Central de Venezuela ni está afiliada a él. La información se obtiene desde datos públicos disponibles en [bcv.org.ve](https://www.bcv.org.ve).
+> Esta API **no es un servicio oficial** del Banco Central de Venezuela ni de ninguna entidad bancaria venezolana.
 >
-> El funcionamiento depende de la estructura HTML del sitio del BCV. Ante cambios en dicho sitio, puede ser necesario actualizar el selector de scraping. Para decisiones financieras críticas, verifica siempre la tasa directamente en la fuente oficial.
+> La información se obtiene desde fuentes públicas. Para decisiones financieras críticas, verifica siempre la tasa directamente en el portal oficial del BCV. El funcionamiento puede verse afectado si las fuentes cambian su estructura HTML.
 
 ---
 

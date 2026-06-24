@@ -41,8 +41,8 @@ async function scrapeBDV() {
       throw new Error('No se encontró la fila del Dólar oficial');
     }
 
-    const cleanHoy      = rateHoy.replace(/\./g, '').replace(',', '.');
-    const cleanAnterior = rateAnterior.replace(/\./g, '').replace(',', '.');
+    const cleanHoy      = rateHoy.replace(',', '.');
+    const cleanAnterior = rateAnterior.replace(',', '.');
     const hoy      = parseFloat(cleanHoy);
     const anterior = parseFloat(cleanAnterior);
 
