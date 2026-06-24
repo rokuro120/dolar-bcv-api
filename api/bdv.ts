@@ -80,8 +80,15 @@ export default async function handler(req: any, res: any) {
       res.status(200).json({ 
         debug: true,
         htmlLength: html.length,
-        preview: html.substring(0, 500)
-      });
+        selectorResult: {
+            byId: require('cheerio').load(html)('span#mesa-cambio-bdv-dolar').text(),
+            byIdBCV: require('cheerio').load(html)('span#mesa-cambio-bcv-dolar').text(),
+            anySpanWithMesa: require('cheerio').load(html)('[id*="mesa-cambio"]').map((_: any, el: any) => ({
+            id: require('cheerio').load(html)(el).attr('id'),
+            text: require('cheerio').load(html)(el).text()
+            })).get(),
+        }
+        });
     } catch (err: any) {
       res.status(503).json({
         debug: true,
