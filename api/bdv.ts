@@ -77,17 +77,17 @@ export default async function handler(req: any, res: any) {
         timeout: 20000,
         httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
       });
-      res.status(200).json({ 
+      const $ = cheerio.load(html);
+
+       // Buscar con regex directamente en el HTML crudo
+        const regexBDV = html.match(/id="mesa-cambio-bdv-dolar">([^<]+)<\/span>/);
+        const regexBCV = html.match(/id="mesa-cambio-bcv-dolar">([^<]+)<\/span>/);
+
+        res.status(200).json({
         debug: true,
-        htmlLength: html.length,
-        selectorResult: {
-            byId: require('cheerio').load(html)('span#mesa-cambio-bdv-dolar').text(),
-            byIdBCV: require('cheerio').load(html)('span#mesa-cambio-bcv-dolar').text(),
-            anySpanWithMesa: require('cheerio').load(html)('[id*="mesa-cambio"]').map((_: any, el: any) => ({
-            id: require('cheerio').load(html)(el).attr('id'),
-            text: require('cheerio').load(html)(el).text()
-            })).get(),
-        }
+        regexBDV: regexBDV?.[1] ?? 'no encontrado',
+        regexBCV: regexBCV?.[1] ?? 'no encontrado',
+        cheerioResult: $('span#mesa-cambio-bdv-dolar').text(),
         });
     } catch (err: any) {
       res.status(503).json({
